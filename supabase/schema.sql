@@ -19,11 +19,13 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
+drop policy if exists "Profiles are viewable by authenticated users" on public.profiles;
 create policy "Profiles are viewable by authenticated users"
   on public.profiles for select
   to authenticated
   using (true);
 
+drop policy if exists "Users can update their own profile" on public.profiles;
 create policy "Users can update their own profile"
   on public.profiles for update
   to authenticated
@@ -72,6 +74,7 @@ create table if not exists public.chat_members (
 alter table public.chats enable row level security;
 alter table public.chat_members enable row level security;
 
+drop policy if exists "Members can view their chats" on public.chats;
 create policy "Members can view their chats"
   on public.chats for select
   to authenticated
@@ -82,11 +85,13 @@ create policy "Members can view their chats"
     )
   );
 
+drop policy if exists "Authenticated users can create chats" on public.chats;
 create policy "Authenticated users can create chats"
   on public.chats for insert
   to authenticated
   with check (created_by = auth.uid());
 
+drop policy if exists "Owners/admins can update chat" on public.chats;
 create policy "Owners/admins can update chat"
   on public.chats for update
   to authenticated
@@ -97,6 +102,7 @@ create policy "Owners/admins can update chat"
     )
   );
 
+drop policy if exists "Members can view membership rows of their chats" on public.chat_members;
 create policy "Members can view membership rows of their chats"
   on public.chat_members for select
   to authenticated
@@ -107,11 +113,13 @@ create policy "Members can view membership rows of their chats"
     )
   );
 
+drop policy if exists "Authenticated users can add members to chats they created or admin" on public.chat_members;
 create policy "Authenticated users can add members to chats they created or admin"
   on public.chat_members for insert
   to authenticated
   with check (true);
 
+drop policy if exists "Members can leave a chat" on public.chat_members;
 create policy "Members can leave a chat"
   on public.chat_members for delete
   to authenticated
@@ -138,6 +146,7 @@ create index if not exists messages_chat_id_created_at_idx
 
 alter table public.messages enable row level security;
 
+drop policy if exists "Members can view messages in their chats" on public.messages;
 create policy "Members can view messages in their chats"
   on public.messages for select
   to authenticated
@@ -148,6 +157,7 @@ create policy "Members can view messages in their chats"
     )
   );
 
+drop policy if exists "Members can send messages in their chats" on public.messages;
 create policy "Members can send messages in their chats"
   on public.messages for insert
   to authenticated
@@ -159,6 +169,7 @@ create policy "Members can send messages in their chats"
     )
   );
 
+drop policy if exists "Senders can edit/delete their own messages" on public.messages;
 create policy "Senders can edit/delete their own messages"
   on public.messages for update
   to authenticated
@@ -204,26 +215,31 @@ create table if not exists public.story_views (
 alter table public.stories enable row level security;
 alter table public.story_views enable row level security;
 
+drop policy if exists "Non-expired stories are viewable by authenticated users" on public.stories;
 create policy "Non-expired stories are viewable by authenticated users"
   on public.stories for select
   to authenticated
   using (expires_at > now());
 
+drop policy if exists "Users can post their own stories" on public.stories;
 create policy "Users can post their own stories"
   on public.stories for insert
   to authenticated
   with check (user_id = auth.uid());
 
+drop policy if exists "Users can delete their own stories" on public.stories;
 create policy "Users can delete their own stories"
   on public.stories for delete
   to authenticated
   using (user_id = auth.uid());
 
+drop policy if exists "Story views are readable by authenticated users" on public.story_views;
 create policy "Story views are readable by authenticated users"
   on public.story_views for select
   to authenticated
   using (true);
 
+drop policy if exists "Users can record their own story views" on public.story_views;
 create policy "Users can record their own story views"
   on public.story_views for insert
   to authenticated
@@ -254,6 +270,7 @@ create table if not exists public.call_participants (
 alter table public.calls enable row level security;
 alter table public.call_participants enable row level security;
 
+drop policy if exists "Chat members can view calls" on public.calls;
 create policy "Chat members can view calls"
   on public.calls for select
   to authenticated
@@ -264,6 +281,7 @@ create policy "Chat members can view calls"
     )
   );
 
+drop policy if exists "Chat members can start calls" on public.calls;
 create policy "Chat members can start calls"
   on public.calls for insert
   to authenticated
@@ -275,6 +293,7 @@ create policy "Chat members can start calls"
     )
   );
 
+drop policy if exists "Participants can update call status" on public.calls;
 create policy "Participants can update call status"
   on public.calls for update
   to authenticated
@@ -285,16 +304,19 @@ create policy "Participants can update call status"
     )
   );
 
+drop policy if exists "Call participants are viewable by chat members" on public.call_participants;
 create policy "Call participants are viewable by chat members"
   on public.call_participants for select
   to authenticated
   using (true);
 
+drop policy if exists "Users manage their own call participation" on public.call_participants;
 create policy "Users manage their own call participation"
   on public.call_participants for insert
   to authenticated
   with check (user_id = auth.uid());
 
+drop policy if exists "Users can update their own call participation" on public.call_participants;
 create policy "Users can update their own call participation"
   on public.call_participants for update
   to authenticated
@@ -303,11 +325,20 @@ create policy "Users can update their own call participation"
 -- ============================================================
 -- REALTIME: enable logical replication for the tables the app subscribes to
 -- ============================================================
-alter publication supabase_realtime add table public.messages;
-alter publication supabase_realtime add table public.chats;
-alter publication supabase_realtime add table public.chat_members;
-alter publication supabase_realtime add table public.calls;
-alter publication supabase_realtime add table public.stories;
+do $$
+declare
+  t text;
+begin
+  foreach t in array array['messages', 'chats', 'chat_members', 'calls', 'stories']
+  loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
 
 -- ============================================================
 -- STORAGE BUCKETS (create in Supabase Studio > Storage, or via SQL below)
@@ -324,11 +355,13 @@ insert into storage.buckets (id, name, public)
 values ('stories', 'stories', true)
 on conflict (id) do nothing;
 
+drop policy if exists "Public read for app media buckets" on storage.objects;
 create policy "Public read for app media buckets"
   on storage.objects for select
   to public
   using (bucket_id in ('avatars', 'chat-media', 'stories'));
 
+drop policy if exists "Authenticated users can upload media" on storage.objects;
 create policy "Authenticated users can upload media"
   on storage.objects for insert
   to authenticated
