@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { ResizeMode, Video } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
@@ -104,7 +104,7 @@ export default function StoryViewerScreen() {
       </View>
 
       {current.media_type === 'video' ? (
-        <Video source={{ uri: current.media_url }} style={styles.media} resizeMode={ResizeMode.CONTAIN} shouldPlay useNativeControls={false} />
+        <StoryVideo uri={current.media_url} />
       ) : (
         <Image source={{ uri: current.media_url }} style={styles.media} resizeMode="contain" />
       )}
@@ -121,6 +121,13 @@ export default function StoryViewerScreen() {
       </View>
     </View>
   );
+}
+
+function StoryVideo({ uri }: { uri: string }) {
+  const player = useVideoPlayer(uri, (p) => {
+    p.play();
+  });
+  return <VideoView player={player} style={styles.media} contentFit="contain" nativeControls={false} />;
 }
 
 const styles = StyleSheet.create({
