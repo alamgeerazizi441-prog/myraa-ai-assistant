@@ -1,0 +1,78 @@
+{
+  "expo": {
+    "name": "Myraa",
+    "slug": "myraa-ai-assistant",
+    "scheme": "myraa",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.myraa.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Myraa needs camera access for video calls and stories.",
+        "NSMicrophoneUsageDescription": "Myraa needs microphone access for voice and video calls.",
+        "NSPhotoLibraryUsageDescription": "Myraa needs photo library access to share photos and stories."
+      }
+    },
+    "android": {
+      "package": "com.myraa.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#128C7E",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "MODIFY_AUDIO_SETTINGS",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS",
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "WAKE_LOCK",
+        "FOREGROUND_SERVICE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-dev-client",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Myraa needs photo library access to share photos and stories."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Myraa needs camera access for video calls and stories.",
+          "microphonePermission": "Myraa needs microphone access for calls."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#128C7E"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {}
+    }
+  }
+}
