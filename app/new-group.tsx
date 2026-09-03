@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
+import { PUBLIC_PROFILE_COLUMNS } from '../lib/profiles';
 import { Avatar } from '../components/Avatar';
 import type { Profile } from '../lib/types';
 
@@ -17,7 +18,7 @@ export default function NewGroupScreen() {
   useEffect(() => {
     supabase
       .from('profiles')
-      .select('*')
+      .select(PUBLIC_PROFILE_COLUMNS)
       .neq('id', session?.user.id ?? '')
       .order('display_name')
       .then(({ data }) => setPeople((data as Profile[]) ?? []));

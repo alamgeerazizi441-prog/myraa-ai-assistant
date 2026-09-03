@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import { findOrCreateDirectChat } from '../lib/chats';
+import { findProfileByPhone } from '../lib/profiles';
 
 const KEYS = [
   ['1', '2', '3'],
@@ -24,17 +25,12 @@ export default function DialPadScreen() {
   const findUser = async () => {
     const term = number.trim();
     if (!term || !session) return null;
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('phone', term)
-      .neq('id', session.user.id)
-      .maybeSingle();
-    if (!data) {
+    const match = await findProfileByPhone(term);
+    if (!match) {
       Alert.alert('Nahi mila', 'Ye number Myraa par register nahi hai. Sirf app par register users ko call/message kiya ja sakta hai (free).');
       return null;
     }
-    return data;
+    return match;
   };
 
   const onCall = async () => {

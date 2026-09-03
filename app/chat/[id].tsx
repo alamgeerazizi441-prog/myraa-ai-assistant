@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../lib/auth-context';
+import { SecureChatImage } from '../../components/SecureChatImage';
 import type { Message } from '../../lib/types';
 
 export default function ChatScreen() {
@@ -89,11 +89,12 @@ export default function ChatScreen() {
       console.warn('[media upload]', uploadError);
       return;
     }
-    const { data: pub } = supabase.storage.from('chat-media').getPublicUrl(path);
+    // chat-media is a private bucket — store the object path, not a public
+    // URL; readers resolve it to a short-lived signed URL (see SecureChatImage).
     await supabase.from('messages').insert({
       chat_id: id,
       sender_id: session.user.id,
-      media_url: pub.publicUrl,
+      media_url: path,
       media_type: isVideo ? 'video' : 'image',
     });
   };
@@ -141,7 +142,7 @@ export default function ChatScreen() {
           return (
             <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleTheirs]}>
               {item.media_url && item.media_type === 'image' ? (
-                <Image source={{ uri: item.media_url }} style={styles.mediaImage} />
+                <SecureChatImage path={item.media_url} style={styles.mediaImage} />
               ) : null}
               {item.content ? <Text style={mine ? styles.bubbleTextMine : styles.bubbleTextTheirs}>{item.content}</Text> : null}
               <Text style={styles.bubbleTime}>{new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>

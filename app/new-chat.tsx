@@ -5,8 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
 import { findOrCreateDirectChat } from '../lib/chats';
+import { findProfileByPhone, PUBLIC_PROFILE_COLUMNS } from '../lib/profiles';
 import { Avatar } from '../components/Avatar';
 import type { Profile } from '../lib/types';
+
+const looksLikePhone = (text: string) => /^[+\d][\d\s-]{2,}$/.test(text);
 
 export default function NewChatScreen() {
   const { session } = useAuth();
@@ -16,9 +19,16 @@ export default function NewChatScreen() {
 
   useEffect(() => {
     const load = async () => {
-      const q = supabase.from('profiles').select('*').neq('id', session?.user.id ?? '').order('display_name');
       const term = query.trim();
-      const { data } = term ? await q.or(`display_name.ilike.%${term}%,phone.ilike.%${term}%`) : await q.limit(50);
+
+      if (term && looksLikePhone(term)) {
+        const match = await findProfileByPhone(term);
+        setPeople(match ? [match as Profile] : []);
+        return;
+      }
+
+      const q = supabase.from('profiles').select(PUBLIC_PROFILE_COLUMNS).neq('id', session?.user.id ?? '').order('display_name');
+      const { data } = term ? await q.ilike('display_name', `%${term}%`) : await q.limit(50);
       setPeople((data as Profile[]) ?? []);
     };
     load();

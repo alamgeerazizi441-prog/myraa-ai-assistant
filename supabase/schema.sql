@@ -342,27 +342,96 @@ end $$;
 
 -- ============================================================
 -- STORAGE BUCKETS (create in Supabase Studio > Storage, or via SQL below)
+-- avatars/stories stay public (broadcast-style, like a profile photo or a
+-- WhatsApp status). chat-media is PRIVATE: only members of the chat it
+-- belongs to may read it, via short-lived signed URLs the app requests.
 -- ============================================================
 insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
-on conflict (id) do nothing;
+on conflict (id) do update set public = true;
 
 insert into storage.buckets (id, name, public)
-values ('chat-media', 'chat-media', true)
-on conflict (id) do nothing;
+values ('chat-media', 'chat-media', false)
+on conflict (id) do update set public = false;
 
 insert into storage.buckets (id, name, public)
 values ('stories', 'stories', true)
-on conflict (id) do nothing;
+on conflict (id) do update set public = true;
 
 drop policy if exists "Public read for app media buckets" on storage.objects;
-create policy "Public read for app media buckets"
+drop policy if exists "Public read for public media buckets" on storage.objects;
+create policy "Public read for public media buckets"
   on storage.objects for select
   to public
-  using (bucket_id in ('avatars', 'chat-media', 'stories'));
+  using (bucket_id in ('avatars', 'stories'));
+
+drop policy if exists "Chat members can read their chat media" on storage.objects;
+create policy "Chat members can read their chat media"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'chat-media'
+    and exists (
+      select 1 from public.chat_members cm
+      where cm.chat_id = (storage.foldername(name))[1]::uuid
+        and cm.user_id = auth.uid()
+    )
+  );
 
 drop policy if exists "Authenticated users can upload media" on storage.objects;
-create policy "Authenticated users can upload media"
+drop policy if exists "Authenticated users can upload to public buckets" on storage.objects;
+create policy "Authenticated users can upload to public buckets"
   on storage.objects for insert
   to authenticated
-  with check (bucket_id in ('avatars', 'chat-media', 'stories'));
+  with check (bucket_id in ('avatars', 'stories'));
+
+drop policy if exists "Chat members can upload chat media" on storage.objects;
+create policy "Chat members can upload chat media"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'chat-media'
+    and exists (
+      select 1 from public.chat_members cm
+      where cm.chat_id = (storage.foldername(name))[1]::uuid
+        and cm.user_id = auth.uid()
+    )
+  );
+
+-- ============================================================
+-- PHONE NUMBER PRIVACY: the `phone` column must not be bulk-readable by
+-- any authenticated client (that would let anyone dump every user's
+-- number). Revoke direct column access and expose it only through two
+-- narrow, purpose-built functions: read your own phone, or check whether
+-- one exact number belongs to a registered account.
+-- ============================================================
+revoke select on public.profiles from authenticated;
+grant select (id, username, display_name, avatar_url, about, is_online, last_seen, created_at)
+  on public.profiles to authenticated;
+
+create or replace function public.get_my_profile()
+returns public.profiles
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select * from public.profiles where id = auth.uid();
+$$;
+
+grant execute on function public.get_my_profile() to authenticated;
+
+create or replace function public.find_profile_by_phone(lookup_phone text)
+returns table (id uuid, display_name text, avatar_url text, about text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select p.id, p.display_name, p.avatar_url, p.about
+  from public.profiles p
+  where p.phone = lookup_phone and p.id <> auth.uid()
+  limit 1;
+$$;
+
+grant execute on function public.find_profile_by_phone(text) to authenticated;

@@ -20,9 +20,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadProfile = async (userId: string) => {
-    const { data } = await supabase.from('profiles').select('*').eq('id', userId).single();
-    setProfile(data as Profile | null);
+  const loadProfile = async (_userId: string) => {
+    // get_my_profile() is a security-definer RPC (see supabase/schema.sql) —
+    // it's the only way to read your own `phone` column, since that
+    // column's direct select grant is revoked for everyone else.
+    const { data } = await supabase.rpc('get_my_profile');
+    setProfile((data as Profile | null) ?? null);
   };
 
   useEffect(() => {
