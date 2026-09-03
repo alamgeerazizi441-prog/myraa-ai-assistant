@@ -19,6 +19,7 @@ export default function RootLayout() {
           <Stack.Screen name="story/[userId]" options={{ presentation: 'fullScreenModal' }} />
           <Stack.Screen name="new-chat" options={{ headerShown: true, title: 'New Chat', presentation: 'modal' }} />
           <Stack.Screen name="new-group" options={{ headerShown: true, title: 'New Group', presentation: 'modal' }} />
+          <Stack.Screen name="dial-pad" options={{ headerShown: true, title: 'Dial Pad', presentation: 'modal' }} />
           <Stack.Screen name="edit-profile" options={{ headerShown: true, title: 'Edit Profile', presentation: 'modal' }} />
         </Stack>
       </AuthProvider>

@@ -1,4 +1,5 @@
-import { Tabs } from 'expo-router';
+import { Pressable } from 'react-native';
+import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function TabsLayout() {
@@ -31,6 +32,11 @@ export default function TabsLayout() {
         options={{
           title: 'Calls',
           tabBarIcon: ({ color, size }) => <Ionicons name="call" size={size} color={color} />,
+          headerRight: () => (
+            <Pressable onPress={() => router.push('/dial-pad')} style={{ marginRight: 16 }}>
+              <Ionicons name="keypad" size={22} color="#fff" />
+            </Pressable>
+          ),
         }}
       />
       <Tabs.Screen

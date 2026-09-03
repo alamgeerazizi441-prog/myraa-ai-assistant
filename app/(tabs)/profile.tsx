@@ -10,14 +10,22 @@ export default function ProfileScreen() {
   const { session, profile, signOut, refreshProfile } = useAuth();
   const [name, setName] = useState(profile?.display_name ?? '');
   const [about, setAbout] = useState(profile?.about ?? '');
+  const [phone, setPhone] = useState(profile?.phone ?? '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   const save = async () => {
     if (!session) return;
     setSaving(true);
-    await supabase.from('profiles').update({ display_name: name.trim(), about: about.trim() }).eq('id', session.user.id);
-    await refreshProfile();
+    const { error } = await supabase
+      .from('profiles')
+      .update({ display_name: name.trim(), about: about.trim(), phone: phone.trim() || null })
+      .eq('id', session.user.id);
+    if (error) {
+      Alert.alert('Save failed', error.code === '23505' ? 'Ye phone number pehle se kisi aur account se juda hai.' : error.message);
+    } else {
+      await refreshProfile();
+    }
     setSaving(false);
   };
 
@@ -70,6 +78,16 @@ export default function ProfileScreen() {
       <Text style={styles.label}>About</Text>
       <TextInput style={styles.input} value={about} onChangeText={setAbout} placeholder="Kuch likhein apne baare mein" />
 
+      <Text style={styles.label}>Phone number</Text>
+      <TextInput
+        style={styles.input}
+        value={phone}
+        onChangeText={setPhone}
+        placeholder="+91 98765 43210"
+        keyboardType="phone-pad"
+      />
+      <Text style={styles.hint}>Doosre log aapko is number se dhoondh/add kar sakenge.</Text>
+
       <Text style={styles.emailLabel}>{session?.user.email}</Text>
 
       <Pressable style={styles.saveButton} onPress={save} disabled={saving}>
@@ -102,6 +120,7 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 13, color: '#128C7E', fontWeight: '700', marginBottom: 6, marginTop: 12 },
   input: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
+  hint: { fontSize: 12, color: '#999', marginTop: 6 },
   emailLabel: { marginTop: 16, color: '#999', fontSize: 13 },
   saveButton: { backgroundColor: '#128C7E', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 28 },
   saveText: { color: '#fff', fontWeight: '700', fontSize: 16 },

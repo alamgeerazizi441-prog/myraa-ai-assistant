@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth-context';
+import { findOrCreateDirectChat } from '../lib/chats';
 import { Avatar } from '../components/Avatar';
 import type { Profile } from '../lib/types';
 
@@ -16,7 +17,8 @@ export default function NewChatScreen() {
   useEffect(() => {
     const load = async () => {
       const q = supabase.from('profiles').select('*').neq('id', session?.user.id ?? '').order('display_name');
-      const { data } = query.trim() ? await q.ilike('display_name', `%${query.trim()}%`) : await q.limit(50);
+      const term = query.trim();
+      const { data } = term ? await q.or(`display_name.ilike.%${term}%,phone.ilike.%${term}%`) : await q.limit(50);
       setPeople((data as Profile[]) ?? []);
     };
     load();
@@ -26,38 +28,8 @@ export default function NewChatScreen() {
     if (!session) return;
     setBusyId(other.id);
     try {
-      const { data: mine } = await supabase
-        .from('chat_members')
-        .select('chat_id, chats!inner(id, is_group)')
-        .eq('user_id', session.user.id)
-        .eq('chats.is_group', false);
-
-      let existingChatId: string | null = null;
-      for (const row of mine ?? []) {
-        const { data: members } = await supabase.from('chat_members').select('user_id').eq('chat_id', row.chat_id);
-        const ids = (members ?? []).map((m) => m.user_id);
-        if (ids.includes(other.id) && ids.length === 2) {
-          existingChatId = row.chat_id;
-          break;
-        }
-      }
-
-      let chatId = existingChatId;
-      if (!chatId) {
-        const { data: chat, error } = await supabase
-          .from('chats')
-          .insert({ is_group: false, created_by: session.user.id })
-          .select('id')
-          .single();
-        if (error || !chat) throw error;
-        chatId = chat.id;
-        await supabase.from('chat_members').insert([
-          { chat_id: chatId, user_id: session.user.id, role: 'owner' },
-          { chat_id: chatId, user_id: other.id, role: 'member' },
-        ]);
-      }
-
-      router.replace({ pathname: '/chat/[id]', params: { id: chatId!, title: other.display_name } });
+      const chatId = await findOrCreateDirectChat(session.user.id, other.id);
+      router.replace({ pathname: '/chat/[id]', params: { id: chatId, title: other.display_name } });
     } catch (err) {
       console.warn('[open chat]', err);
     } finally {
@@ -69,7 +41,7 @@ export default function NewChatScreen() {
     <View style={styles.container}>
       <View style={styles.searchBar}>
         <Ionicons name="search" size={18} color="#888" />
-        <TextInput style={styles.searchInput} placeholder="Search people" value={query} onChangeText={setQuery} />
+        <TextInput style={styles.searchInput} placeholder="Search by name or phone number" value={query} onChangeText={setQuery} />
       </View>
 
       <Pressable style={styles.groupRow} onPress={() => router.replace('/new-group')}>
